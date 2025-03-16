@@ -58,23 +58,32 @@ fn generate_key() -> (SigningKey, VerifyingKey) {
 }
 
 fn main(){
-    // 事前準備
-    let (_, public_key_a) = generate_key();
-    let (_, public_key_b) = generate_key();
-    let content_data = "test";
-    // Peeridの生成
-    let peer_id_a = generate_peer_id(&public_key_a.to_encoded_point(false).as_bytes());
-    let peer_id_b = generate_peer_id(&public_key_b.to_encoded_point(false).as_bytes());
+    // 複数のpeerの作成
+    let mut peers = Vec::new();
+    for _ in 0..10 {
+        let (_, public_key) = generate_key();
+        let peer_id = generate_peer_id(&public_key.to_encoded_point(false).as_bytes());
+        peers.push(peer_id);
+    }
 
+    // コンテンツの作成
+    let content_data = "test";
     let content_id = generate_content_id(&content_data);
 
-    // aの距離
-    let distance_a = xor_distance(&peer_id_a, &content_id);
-    // bの距離
-    let distance_b = xor_distance(&peer_id_b, &content_id);
-    match compare_xor_distance(&distance_a, &distance_b) {
-        std::cmp::Ordering::Less => println!("Aが近い"),
-        std::cmp::Ordering::Equal=> println!("距離が同じ"),
-        std::cmp::Ordering::Greater=> println!("Bが近い"),
+    // Peerの距離の計算を行いソートする
+    let mut peer_distances: Vec<([u8; 32], [u8; 32])> = peers
+    .into_iter()
+    .map(|peer_id| {
+        let dist = xor_distance(&peer_id, &content_id);
+        (peer_id, dist)
+    })
+    .collect();
+
+    // ソート時、XOR結果が小さい順(=近い順)になるよう比較
+    peer_distances.sort_by(|(_, d1), (_, d2)| d1.cmp(d2));
+
+    println!("--- Top nearest peers ---");
+    for (i, (peer_id, _)) in peer_distances.iter().take(3).enumerate() {
+        println!("Rank {}: PeerID ={:?}", i+1, peer_id);
     }
 }
